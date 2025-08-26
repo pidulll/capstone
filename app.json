@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "ChildWatch",
+    "slug": "childwatch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourname.childwatch",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to your location to track your child's whereabouts.",
+        "NSLocationWhenInUseUsageDescription": "This app requires access to your location to track your child's whereabouts."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "NOTIFICATION"
+      ],
+      "package": "com.yourname.childwatch"
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow ChildWatch to access your location."
+        }
+      ],
+      "expo-notifications" 
+    ]
+  }
+}
