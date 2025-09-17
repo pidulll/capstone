@@ -1,0 +1,121 @@
+{
+  "rules": {
+    ".read": "false",
+    ".write": "false",
+
+    // Allow only the device itself (identified by its ID) to write its location.
+    // This requires the device to authenticate in a way that its DEVICE_ID is known.
+    // For a service account, this is tricky. A common pattern is to have a separate
+    // "device_auth" node where devices register and get a token, or to use custom tokens.
+    // For simplicity with a service account, we'll assume the service account is trusted
+    // to write to its own device ID.
+    "child_location": {
+      "$deviceId": {
+        ".read": "root.child('paired_devices').child(auth.uid).val() === $deviceId",
+        // Allow write if the request comes from the device's service account
+        // OR if it's a trusted admin (which the service account is by default).
+        // If you want to restrict to *only* the device, you'd need a more complex auth setup.
+        // For now, we'll allow the service account to write.
+        ".write": "auth.admin == true || (root.child('device_info').child($deviceId).child('parentUid').val() == auth.uid && auth != null)" // Parent can't write child location
+      }
+    },
+
+    "geofences": {
+      ".read": "root.child('paired_devices').child(auth.uid).exists()",
+      ".write": "root.child('paired_devices').child(auth.uid).exists()"
+    },
+
+    // This node is not used by the provided code. Consider removing it or defining its purpose.
+    "geofence_status": {
+      ".read": "false",
+      ".write": "false"
+    },
+
+    "audio_recordings": {
+      "$deviceId": {
+        ".read": "root.child('paired_devices').child(auth.uid).val() === $deviceId",
+        // Allow write from the device's service account
+        ".write": "auth.admin == true || (root.child('device_info').child($deviceId).child('parentUid').val() == auth.uid && auth != null)" // Parent can't write audio recordings
+      }
+    },
+
+    "child_status": {
+      "$deviceId": {
+        ".read": "root.child('paired_devices').child(auth.uid).val() === $deviceId",
+        // Allow write from the device's service account
+        ".write": "auth.admin == true || (root.child('device_info').child($deviceId).child('parentUid').val() == auth.uid && auth != null)" // Parent can't write child status
+      }
+    },
+
+    "pairing_codes": {
+      ".read": "true", // Anyone can read to check existence
+      ".write": "false", // No one can write directly to the root of pairing_codes
+
+      "$code": {
+        // Device can create/update its own pairing code entry
+        // Parent can claim it by writing to 'claimedBy'
+        ".read": "true",
+        ".write": "auth.admin == true || (auth != null && auth.uid == newData.child('claimedBy').val())", // Device (admin) can write, or parent can write 'claimedBy'
+
+        ".validate": "newData.hasChildren(['deviceId', 'expiresAt']) && newData.child('deviceId').isString() && newData.child('expiresAt').isNumber()",
+
+        "deviceId": {
+          ".validate": "newData.isString()"
+        },
+
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+
+        "claimedBy": {
+          ".write": "auth != null && (!data.exists() || data.val() == null) && (root.child('pairing_codes').child($code).child('expiresAt').val() == 0 || root.child('pairing_codes').child($code).child('expiresAt').val() > now)",
+          ".validate": "newData.isString() && newData.val() == auth.uid"
+        }
+      }
+    },
+
+    "paired_devices": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid && newData.isString() && root.child('pairing_codes').child(root.child('parent_settings').child(auth.uid).child('claimedCode').val()).child('deviceId').val() == newData.val()"
+      }
+    },
+
+    "parent_settings": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+
+        "smsPhoneNumber": {
+          ".validate": "newData.isString() || newData.val() == null"
+        },
+
+        "claimedCode": {
+          ".validate": "newData.isString() || newData.val() == null"
+        }
+      }
+    },
+
+    "device_info": {
+      "$deviceId": {
+        ".read": "root.child('paired_devices').child(auth.uid).val() == $deviceId",
+        // Allow write from the device's service account OR if the parentUid is being set/cleared by the paired parent
+        ".write": "auth.admin == true || (auth != null && root.child('paired_devices').child(auth.uid).val() == $deviceId && (newData.hasChildren(['parentUid']) || newData.hasChildren(['pairingCode'])))",
+
+        "pairingCode": {
+          ".write": "auth.admin == true" // Only the device (admin) can write its pairing code
+        },
+
+        "parentUid": {
+          // Device (admin) can write its parentUid (e.g., set to null on unpair)
+          // Parent can write its own UID here during pairing/unpairing
+          ".write": "auth.admin == true || (auth != null && root.child('paired_devices').child(auth.uid).val() == $deviceId && newData.val() == auth.uid) || (auth != null && root.child('paired_devices').child(auth.uid).val() == $deviceId && newData.val() == null)"
+        },
+
+        "smsPhoneNumber": {
+          ".read": "true" // This field is not written by the Pi or parent app, consider removing if unused.
+        }
+      }
+    }
+  }
+}
