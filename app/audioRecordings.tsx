@@ -22,6 +22,7 @@ interface AudioRecording {
   latitude: number;
   longitude: number;
   event: string;
+  duration?: number; // MODIFIED: Added optional duration property
 }
 
 export default function AudioRecordingsScreen() {
@@ -155,6 +156,7 @@ export default function AudioRecordingsScreen() {
         </Text>
         <Text style={styles.recordingDetails}>
           Lat: {item.latitude.toFixed(4)}, Lon: {item.longitude.toFixed(4)}
+          {item.duration ? `, Duration: ${item.duration}s` : ''} {/* MODIFIED: Display duration */}
         </Text>
       </View>
       <Pressable
