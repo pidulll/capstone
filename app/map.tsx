@@ -16,8 +16,8 @@ import {
   View
 } from 'react-native';
 import MapView, { Circle, Marker } from 'react-native-maps';
-import { db } from '../firebase'; // Import auth
-import { useAuth } from './_layout'; // Import useAuth from _layout
+import { db } from '../firebase';
+import { useAuth } from './_layout';
 
 interface ChildLocation {
   latitude: number;
@@ -44,7 +44,7 @@ interface LDRStatus {
 }
 
 export default function MapScreen() {
-  const { user, isPaired, pairingLoading } = useAuth(); // Use the custom auth hook
+  const { user, isPaired, pairingLoading } = useAuth();
   const [childLocation, setChildLocation] = useState<ChildLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
@@ -60,11 +60,13 @@ export default function MapScreen() {
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [geofenceStatus, setGeofenceStatus] = useState<'inside' | 'outside' | 'unknown'>('unknown');
   const [previousGeofenceStatus, setPreviousGeofenceStatus] = useState<'inside' | 'outside' | 'unknown'>('unknown');
-  const [ldrStatus, setLdrStatus] = useState<LDRStatus | null>(null); // State for LDR status
-  const [previousLdrRemoved, setPreviousLdrRemoved] = useState<boolean | null>(null); // To track previous LDR removed state for notifications
-  const [deviceId, setDeviceId] = useState<string | null>(null); // New state for device ID
+  const [ldrStatus, setLdrStatus] = useState<LDRStatus | null>(null);
+  const [previousLdrRemoved, setPreviousLdrRemoved] = useState<boolean | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
 
   const mapRef = useRef<MapView>(null);
+  // The lastLoggedTimeRef is no longer needed in the parent app as the child device handles history logging.
+  // const lastLoggedTimeRef = useRef<number>(0);
 
   // Haversine formula to calculate distance between two lat/lon points
   const haversineDistance = (coords1: { latitude: number; longitude: number }, coords2: { latitude: number; longitude: number }) => {
@@ -137,6 +139,23 @@ export default function MapScreen() {
     setPreviousGeofenceStatus(currentStatus);
   }, [previousGeofenceStatus]);
 
+  // Removed logLocationHistory from parent app as it should be handled by the child device.
+  // const logLocationHistory = async (location: ChildLocation, currentDeviceId: string) => {
+  //   const now = Date.now();
+  //   const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+  //   if (now - lastLoggedTimeRef.current >= thirtyMinutes) {
+  //     try {
+  //       const historyRef = ref(db, `child_location_history/${currentDeviceId}/${now}`);
+  //       await set(historyRef, location);
+  //       lastLoggedTimeRef.current = now;
+  //       console.log('Location logged to history:', location);
+  //     } catch (error) {
+  //       console.error('Error logging location history:', error);
+  //     }
+  //   }
+  // };
+
   const fetchLocationAndGeofenceData = async () => {
     if (!user || !isPaired || !deviceId) {
       setDebugInfo('Not paired or device ID not available. Skipping data fetch.');
@@ -188,6 +207,11 @@ export default function MapScreen() {
           latitude: newChildLocation!.latitude,
           longitude: newChildLocation!.longitude,
         }));
+
+        // REMOVED: logLocationHistory call from here.
+        // The child device is responsible for logging its own history.
+        // logLocationHistory(newChildLocation, deviceId);
+
       } else {
         console.log('No child location data found in Firebase');
         setDebugInfo('No child location data');
@@ -225,7 +249,7 @@ export default function MapScreen() {
 
       setLastFetch(new Date().toLocaleTimeString());
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Firebase read error:', error);
       setDebugInfo(`Error: ${error.message}`);
       Alert.alert('Connection Error', 'Unable to retrieve data. Please check your internet connection.');
@@ -249,7 +273,7 @@ export default function MapScreen() {
             setDeviceId(null);
             setDebugInfo('User is authenticated but no device ID found in paired_devices.');
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching paired device ID:", error);
           setDebugInfo(`Error fetching paired device ID: ${error.message}`);
           setDeviceId(null);
@@ -283,7 +307,7 @@ export default function MapScreen() {
 
     requestPermissions();
 
-    if (isPaired && deviceId && user) { // Added user to condition
+    if (isPaired && deviceId && user) {
       fetchLocationAndGeofenceData();
       const interval = setInterval(fetchLocationAndGeofenceData, 60000); // Refresh every minute
       return () => clearInterval(interval);
@@ -291,7 +315,7 @@ export default function MapScreen() {
       setLoading(false); // Stop loading if not paired
     }
     return () => {}; // Cleanup for when not paired
-  }, [checkGeofenceStatus, isPaired, deviceId, pairingLoading, user]); // Added user to dependency array
+  }, [checkGeofenceStatus, isPaired, deviceId, pairingLoading, user]);
 
   // Real-time listener for LDR status
   useEffect(() => {
@@ -329,16 +353,16 @@ export default function MapScreen() {
         setLdrStatus(null);
         setPreviousLdrRemoved(null);
       }
-    }, (error) => {
+    }, (error: any) => {
       console.error('Error real-time fetching LDR status:', error);
     });
 
     return () => off(ldrRef, 'value', unsubscribeLdr);
-  }, [previousLdrRemoved, isPaired, deviceId]); // Add previousLdrRemoved to dependency array
+  }, [previousLdrRemoved, isPaired, deviceId]);
 
   // Listen for real-time updates to geofences (optional, but good for dynamic status)
   useEffect(() => {
-    if (!isPaired || !deviceId || !user) return; // Added user to condition
+    if (!isPaired || !deviceId || !user) return;
 
     // MODIFIED: Point to user-specific geofences
     const geofencesRef = ref(db, `geofences/${user.uid}`);
@@ -352,12 +376,12 @@ export default function MapScreen() {
       }
       setGeofences(loadedGeofences);
       checkGeofenceStatus(childLocation, loadedGeofences);
-    }, (error) => {
+    }, (error: any) => {
       console.error('Error real-time fetching geofences:', error);
     });
 
     return () => off(geofencesRef, 'value', unsubscribe);
-  }, [childLocation, checkGeofenceStatus, isPaired, deviceId, user]); // Added user to dependency array
+  }, [childLocation, checkGeofenceStatus, isPaired, deviceId, user]);
 
   const handleRefresh = () => {
     fetchLocationAndGeofenceData();
